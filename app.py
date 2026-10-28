@@ -46,6 +46,16 @@ def lees_velden(bron):
     except ValueError:
         return None, "Voorraad is geen geheel getal"
 
+    merk_raw = str(bron.get("merk_id") or "").strip()
+    merk_id = None
+    if merk_raw:
+        try:
+            merk_id = int(merk_raw)
+        except ValueError:
+            return None, "merk_id is geen geheel getal"
+        if db.merk_op_id(merk_id) is None:
+            return None, "Merk bestaat niet"
+
     return {
         "naam": naam,
         "categorie": (bron.get("categorie") or "").strip(),
@@ -53,13 +63,16 @@ def lees_velden(bron):
         "kleur": (bron.get("kleur") or "").strip(),
         "prijs": prijs,
         "voorraad": voorraad,
+        "merk_id": merk_id,
     }, None
 
 
 # --- API ----------------------------------------------------------------
 @app.get("/api/kledingstukken")
 def lijst():
-    return jsonify(db.alle_kledingstukken())
+    """Optioneel filteren met ?merk_id=3"""
+    merk_id = request.args.get("merk_id", type=int)
+    return jsonify(db.alle_kledingstukken(merk_id))
 
 
 @app.get("/api/kledingstukken/<int:item_id>")
@@ -83,6 +96,46 @@ def aanmaken():
 @app.delete("/api/kledingstukken/<int:item_id>")
 def verwijderen(item_id):
     if not db.verwijder_kledingstuk(item_id):
+        return jsonify({"fout": "Niet gevonden"}), 404
+    return "", 204
+
+
+# --- merken -------------------------------------------------------------
+@app.get("/api/merken")
+def merken():
+    return jsonify(db.alle_merken())
+
+
+@app.get("/api/merken/<int:merk_id>")
+def merk_detail(merk_id):
+    merk = db.merk_op_id(merk_id)
+    if merk is None:
+        return jsonify({"fout": "Niet gevonden"}), 404
+    return jsonify(merk)
+
+
+@app.get("/api/merken/<int:merk_id>/kledingstukken")
+def merk_kleding(merk_id):
+    """Alle kledingstukken van één merk."""
+    if db.merk_op_id(merk_id) is None:
+        return jsonify({"fout": "Merk niet gevonden"}), 404
+    return jsonify(db.alle_kledingstukken(merk_id))
+
+
+@app.post("/api/merken")
+def merk_aanmaken():
+    bron = request.get_json(silent=True) or request.form
+    naam = (bron.get("naam") or "").strip()
+    if not naam:
+        return jsonify({"fout": "Naam is verplicht"}), 400
+    if any(m["naam"].lower() == naam.lower() for m in db.alle_merken()):
+        return jsonify({"fout": "Merk bestaat al"}), 409
+    return jsonify(db.maak_merk(naam, (bron.get("land") or "").strip())), 201
+
+
+@app.delete("/api/merken/<int:merk_id>")
+def merk_verwijderen(merk_id):
+    if not db.verwijder_merk(merk_id):
         return jsonify({"fout": "Niet gevonden"}), 404
     return "", 204
 
