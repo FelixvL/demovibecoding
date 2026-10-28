@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kledingkast</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f4f4f8; color: #222; margin: 0; padding: 1.5rem 1rem;
+    }
+    header {
+      max-width: 1000px; margin: 0 auto 1.5rem;
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;
+    }
+    h1 { margin: 0; font-size: 1.6rem; }
+    nav a {
+      color: #3b5bdb; text-decoration: none; font-weight: 600;
+      padding: 0.5rem 0.9rem; border: 1px solid #3b5bdb; border-radius: 8px;
+    }
+    nav a:hover { background: #3b5bdb; color: #fff; }
+    .filters { max-width: 1000px; margin: 0 auto 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .filters input, .filters select {
+      padding: 0.5rem 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 0.95rem;
+    }
+    .filters input { flex: 1; min-width: 180px; }
+    .grid {
+      max-width: 1000px; margin: 0 auto;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem;
+    }
+    .kaart {
+      background: #fff; border-radius: 12px; overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08); display: flex; flex-direction: column;
+    }
+    .kaart .foto {
+      aspect-ratio: 1; background: #e9e9ef; display: flex; align-items: center; justify-content: center;
+      color: #999; font-size: 2.5rem;
+    }
+    .kaart img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .kaart .inhoud { padding: 0.9rem; flex: 1; display: flex; flex-direction: column; gap: 0.3rem; }
+    .kaart h2 { margin: 0; font-size: 1.1rem; }
+    .kaart .meta { color: #666; font-size: 0.9rem; }
+    .kaart .prijs { font-weight: 700; color: #3b5bdb; margin-top: auto; }
+    .tag {
+      display: inline-block; background: #eef0fb; color: #3b5bdb; border-radius: 999px;
+      padding: 0.1rem 0.6rem; font-size: 0.8rem; margin-right: 0.3rem;
+    }
+    .merklink { color: #3b5bdb; font-weight: 600; text-decoration: none; }
+    .merklink:hover { text-decoration: underline; }
+    .melding { max-width: 1000px; margin: 2rem auto; text-align: center; color: #777; }
+    .melding.fout { color: #c0392b; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Kledingkast</h1>
+    <nav><a href="beheer.html">+ Kledingstuk toevoegen</a></nav>
+  </header>
+
+  <div class="filters">
+    <input type="search" id="zoek" placeholder="Zoeken op naam, merk, kleur...">
+    <select id="merkFilter"><option value="">Alle merken</option></select>
+    <select id="categorieFilter"><option value="">Alle categorieën</option></select>
+  </div>
+
+  <div class="grid" id="grid"></div>
+  <p class="melding" id="melding">Laden...</p>
+
+  <script>
+    // Zelfde adres als de pagina (Flask of Azure); bij openen als los bestand: lokale server
+    const API = location.protocol.startsWith('http') ? location.origin : 'http://localhost:5001';
+    const grid = document.getElementById('grid');
+    const melding = document.getElementById('melding');
+    const zoek = document.getElementById('zoek');
+    const categorieFilter = document.getElementById('categorieFilter');
+    const merkFilter = document.getElementById('merkFilter');
+    let items = [];
+
+    async function laadMerken() {
+      const res = await fetch(`${API}/api/merken`);
+      if (!res.ok) return;
+      (await res.json()).forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.merk_id; opt.textContent = `${m.naam} (${m.aantal})`;
+        merkFilter.appendChild(opt);
+      });
+      const gekozen = new URLSearchParams(location.search).get('merk_id');
+      if (gekozen) { merkFilter.value = gekozen; render(); }
+    }
+
+    async function laden() {
+      try {
+        const res = await fetch(`${API}/api/kledingstukken`);
+        if (!res.ok) throw new Error(res.statusText);
+        items = await res.json();
+        vulCategorieen();
+        render();
+        laadMerken();
+      } catch (e) {
+        melding.textContent = 'Kan de backend niet bereiken. Draait de Flask-server op poort 5001?';
+        melding.classList.add('fout');
+      }
+    }
+
+    function vulCategorieen() {
+      const cats = [...new Set(items.map(i => i.categorie).filter(Boolean))].sort();
+      cats.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c; opt.textContent = c;
+        categorieFilter.appendChild(opt);
+      });
+    }
+
+    function render() {
+      const q = zoek.value.trim().toLowerCase();
+      const cat = categorieFilter.value;
+      const merk = merkFilter.value;
+      const zichtbaar = items.filter(i => {
+        if (cat && i.categorie !== cat) return false;
+        if (merk && String(i.merk_id) !== merk) return false;
+        if (!q) return true;
+        return [i.naam, i.merk, i.kleur, i.maat, i.categorie]
+          .some(v => (v || '').toLowerCase().includes(q));
+      });
+
+      grid.innerHTML = '';
+      if (!zichtbaar.length) {
+        melding.textContent = items.length ? 'Geen kledingstukken gevonden.' : 'Nog geen kledingstukken. Voeg er een toe via de beheerpagina.';
+        melding.style.display = 'block';
+        return;
+      }
+      melding.style.display = 'none';
+
+      zichtbaar.forEach(i => {
+        const kaart = document.createElement('article');
+        kaart.className = 'kaart';
+
+        const foto = document.createElement('div');
+        foto.className = 'foto';
+        foto.textContent = '👕';
+
+        const inhoud = document.createElement('div');
+        inhoud.className = 'inhoud';
+
+        const h2 = document.createElement('h2');
+        h2.textContent = i.naam;
+
+        const tags = document.createElement('div');
+        [i.categorie, i.maat, i.kleur].filter(Boolean).forEach(t => {
+          const s = document.createElement('span'); s.className = 'tag'; s.textContent = t; tags.appendChild(s);
+        });
+
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        const voorraad = i.voorraad > 0 ? `Voorraad: ${i.voorraad}` : 'Niet op voorraad';
+        if (i.merk) {
+          const link = document.createElement('a');
+          link.href = `?merk_id=${i.merk_id}`; link.textContent = i.merk; link.className = 'merklink';
+          link.addEventListener('click', (e) => { e.preventDefault(); merkFilter.value = i.merk_id; render(); });
+          meta.append(link, ` · ${voorraad}`);
+        } else {
+          meta.textContent = voorraad;
+        }
+
+        const prijs = document.createElement('div');
+        prijs.className = 'prijs';
+        prijs.textContent = `€ ${Number(i.prijs).toFixed(2).replace('.', ',')}`;
+
+        inhoud.append(h2, tags, meta, prijs);
+        kaart.append(foto, inhoud);
+        grid.appendChild(kaart);
+      });
+    }
+
+    zoek.addEventListener('input', render);
+    categorieFilter.addEventListener('change', render);
+    merkFilter.addEventListener('change', render);
+    laden();
+  </script>
+</body>
+</html>

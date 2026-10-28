@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Takenlijst</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f4f4f8;
+      color: #222;
+      margin: 0;
+      padding: 2rem 1rem;
+      display: flex;
+      justify-content: center;
+    }
+    main {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 480px;
+    }
+    h1 { margin: 0 0 1rem; font-size: 1.5rem; }
+    form { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    input[type="text"] {
+      flex: 1;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+    button {
+      padding: 0.6rem 1rem;
+      border: none;
+      border-radius: 8px;
+      background: #3b5bdb;
+      color: #fff;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    button:hover { background: #2f4ab8; }
+    ul { list-style: none; padding: 0; margin: 0; }
+    li {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.6rem 0;
+      border-bottom: 1px solid #eee;
+    }
+    li.done span { text-decoration: line-through; color: #888; }
+    li span { flex: 1; }
+    li .verwijder {
+      background: transparent;
+      color: #c0392b;
+      padding: 0.2rem 0.5rem;
+      font-size: 1.1rem;
+    }
+    li .verwijder:hover { background: #fdecea; }
+    .leeg { color: #888; text-align: center; padding: 1rem 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Takenlijst</h1>
+    <form id="taakForm">
+      <input type="text" id="taakInput" placeholder="Nieuwe taak..." required autocomplete="off">
+      <button type="submit">Toevoegen</button>
+    </form>
+    <ul id="takenLijst"></ul>
+    <p class="leeg" id="leegMelding">Nog geen taken. Voeg er een toe!</p>
+  </main>
+
+  <script>
+    const form = document.getElementById('taakForm');
+    const input = document.getElementById('taakInput');
+    const lijst = document.getElementById('takenLijst');
+    const leegMelding = document.getElementById('leegMelding');
+
+    let taken = [];
+    try {
+      taken = JSON.parse(localStorage.getItem('taken')) || [];
+    } catch (e) {
+      taken = [];
+    }
+
+    function opslaan() {
+      try { localStorage.setItem('taken', JSON.stringify(taken)); } catch (e) {}
+    }
+
+    function render() {
+      lijst.innerHTML = '';
+      leegMelding.style.display = taken.length ? 'none' : 'block';
+
+      taken.forEach((taak, index) => {
+        const li = document.createElement('li');
+        if (taak.klaar) li.classList.add('done');
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = taak.klaar;
+        checkbox.addEventListener('change', () => {
+          taak.klaar = checkbox.checked;
+          opslaan();
+          render();
+        });
+
+        const tekst = document.createElement('span');
+        tekst.textContent = taak.tekst;
+
+        const verwijder = document.createElement('button');
+        verwijder.className = 'verwijder';
+        verwijder.textContent = '✕';
+        verwijder.title = 'Verwijderen';
+        verwijder.addEventListener('click', () => {
+          taken.splice(index, 1);
+          opslaan();
+          render();
+        });
+
+        li.append(checkbox, tekst, verwijder);
+        lijst.appendChild(li);
+      });
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const tekst = input.value.trim();
+      if (!tekst) return;
+      taken.push({ tekst, klaar: false });
+      input.value = '';
+      opslaan();
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>

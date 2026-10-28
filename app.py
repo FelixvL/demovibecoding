@@ -15,7 +15,9 @@ from flask_cors import CORS
 import db
 
 BASIS = os.path.dirname(os.path.abspath(__file__))
-FRONTEND_MAP = os.path.join(os.path.dirname(BASIS), "fe")
+# Lokaal: de map ../fe (bron). Op Azure staat alleen be/ en gebruiken we de kopie in be/frontend.
+_FE_BRON = os.path.join(os.path.dirname(BASIS), "fe")
+FRONTEND_MAP = _FE_BRON if os.path.isdir(_FE_BRON) else os.path.join(BASIS, "frontend")
 
 app = Flask(__name__)
 CORS(app)

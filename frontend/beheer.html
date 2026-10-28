@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Beheer kledingstukken</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f4f4f8; color: #222; margin: 0; padding: 1.5rem 1rem;
+    }
+    header {
+      max-width: 900px; margin: 0 auto 1.5rem;
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;
+    }
+    h1, h2 { margin: 0; }
+    h1 { font-size: 1.6rem; }
+    h2 { font-size: 1.2rem; margin-bottom: 1rem; }
+    nav a {
+      color: #3b5bdb; text-decoration: none; font-weight: 600;
+      padding: 0.5rem 0.9rem; border: 1px solid #3b5bdb; border-radius: 8px;
+    }
+    nav a:hover { background: #3b5bdb; color: #fff; }
+    .paneel {
+      max-width: 900px; margin: 0 auto 1.5rem; background: #fff; border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08); padding: 1.5rem;
+    }
+    form { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; }
+    label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.9rem; font-weight: 600; }
+    label.breed { grid-column: 1 / -1; }
+    input, select, textarea {
+      padding: 0.6rem 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; font-family: inherit;
+    }
+    textarea { min-height: 80px; resize: vertical; }
+    .acties { grid-column: 1 / -1; display: flex; align-items: center; gap: 1rem; }
+    button {
+      padding: 0.65rem 1.2rem; border: none; border-radius: 8px; background: #3b5bdb;
+      color: #fff; font-size: 1rem; cursor: pointer;
+    }
+    button:hover { background: #2f4ab8; }
+    button:disabled { background: #999; cursor: default; }
+    .status { font-size: 0.95rem; }
+    .status.ok { color: #1e8e3e; }
+    .status.fout { color: #c0392b; }
+    .preview { max-height: 150px; border-radius: 8px; display: none; margin-top: 0.4rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+    th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid #eee; vertical-align: middle; }
+    th { color: #666; font-weight: 600; font-size: 0.85rem; }
+    td img { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; }
+    .verwijder { background: transparent; color: #c0392b; padding: 0.3rem 0.6rem; }
+    .verwijder:hover { background: #fdecea; }
+    .leeg { color: #888; text-align: center; padding: 1rem; }
+    .merkform { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
+    .merkform input { flex: 1; min-width: 140px; }
+    @media (max-width: 600px) { form { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Beheer kledingstukken</h1>
+    <nav><a href="kleding.html">← Naar overzicht</a></nav>
+  </header>
+
+  <section class="paneel">
+    <h2>Nieuw kledingstuk</h2>
+    <form id="formulier">
+      <label>Naam *
+        <input name="naam" required placeholder="Bijv. Blauwe spijkerbroek">
+      </label>
+      <label>Categorie
+        <select name="categorie">
+          <option value="">— kies —</option>
+          <option>Broek</option><option>Shirt</option><option>Trui</option>
+          <option>Jas</option><option>Jurk</option><option>Rok</option>
+          <option>Schoenen</option><option>Accessoire</option>
+        </select>
+      </label>
+      <label>Merk
+        <select name="merk_id" id="merkKeuze"><option value="">— geen —</option></select>
+      </label>
+      <label>Maat <input name="maat" placeholder="M, 42, ..."></label>
+      <label>Kleur <input name="kleur" placeholder="Blauw"></label>
+      <label>Prijs (€) * <input name="prijs" type="number" step="0.01" min="0" required placeholder="49.95"></label>
+      <label>Voorraad <input name="voorraad" type="number" step="1" min="0" value="0"></label>
+      <div class="acties">
+        <button type="submit" id="opslaan">Opslaan</button>
+        <span class="status" id="status"></span>
+      </div>
+    </form>
+  </section>
+
+  <section class="paneel">
+    <h2>Merken</h2>
+    <form id="merkFormulier" class="merkform">
+      <input name="naam" required placeholder="Merknaam *">
+      <input name="land" placeholder="Land">
+      <button type="submit">Merk toevoegen</button>
+      <span class="status" id="merkStatus"></span>
+    </form>
+    <table>
+      <thead><tr><th>#</th><th>Naam</th><th>Land</th><th>Aantal kledingstukken</th><th></th></tr></thead>
+      <tbody id="merkTabel"></tbody>
+    </table>
+  </section>
+
+  <section class="paneel">
+    <h2>Bestaande kledingstukken</h2>
+    <table>
+      <thead><tr><th>#</th><th>Naam</th><th>Merk</th><th>Categorie</th><th>Maat</th><th>Kleur</th><th>Prijs</th><th>Voorraad</th><th></th></tr></thead>
+      <tbody id="tabel"></tbody>
+    </table>
+    <p class="leeg" id="leeg">Laden...</p>
+  </section>
+
+  <script>
+    // Zelfde adres als de pagina (Flask of Azure); bij openen als los bestand: lokale server
+    const API = location.protocol.startsWith('http') ? location.origin : 'http://localhost:5001';
+    const formulier = document.getElementById('formulier');
+    const status = document.getElementById('status');
+    const opslaan = document.getElementById('opslaan');
+    const tabel = document.getElementById('tabel');
+    const leeg = document.getElementById('leeg');
+
+    function zetStatus(tekst, soort) {
+      status.textContent = tekst;
+      status.className = 'status ' + (soort || '');
+    }
+
+    formulier.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      opslaan.disabled = true;
+      zetStatus('Opslaan...');
+      try {
+        const res = await fetch(`${API}/api/kledingstukken`, { method: 'POST', body: new FormData(formulier) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.fout || res.statusText);
+        zetStatus(`"${data.naam}" opgeslagen.`, 'ok');
+        formulier.reset();
+        laden();
+        laadMerken();
+      } catch (err) {
+        zetStatus('Fout: ' + err.message, 'fout');
+      } finally {
+        opslaan.disabled = false;
+      }
+    });
+
+    async function verwijder(item) {
+      if (!confirm(`"${item.naam}" verwijderen?`)) return;
+      const res = await fetch(`${API}/api/kledingstukken/${item.kledingstuk_id}`, { method: 'DELETE' });
+      if (res.ok) laden(); else zetStatus('Verwijderen mislukt', 'fout');
+    }
+
+    const merkFormulier = document.getElementById('merkFormulier');
+    const merkStatus = document.getElementById('merkStatus');
+    const merkTabel = document.getElementById('merkTabel');
+    const merkKeuze = document.getElementById('merkKeuze');
+
+    merkFormulier.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      merkStatus.textContent = '';
+      const res = await fetch(`${API}/api/merken`, { method: 'POST', body: new FormData(merkFormulier) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { merkStatus.textContent = 'Fout: ' + (data.fout || res.statusText); merkStatus.className = 'status fout'; return; }
+      merkStatus.textContent = `"${data.naam}" toegevoegd.`; merkStatus.className = 'status ok';
+      merkFormulier.reset();
+      laadMerken();
+    });
+
+    async function verwijderMerk(m) {
+      if (!confirm(`Merk "${m.naam}" verwijderen? Kledingstukken van dit merk blijven bestaan zonder merk.`)) return;
+      const res = await fetch(`${API}/api/merken/${m.merk_id}`, { method: 'DELETE' });
+      if (res.ok) { laadMerken(); laden(); }
+    }
+
+    async function laadMerken() {
+      const res = await fetch(`${API}/api/merken`);
+      if (!res.ok) return;
+      const merken = await res.json();
+      const huidig = merkKeuze.value;
+      merkKeuze.innerHTML = '<option value="">— geen —</option>';
+      merkTabel.innerHTML = '';
+      merken.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.merk_id; opt.textContent = m.naam; merkKeuze.appendChild(opt);
+        const tr = document.createElement('tr');
+        [m.merk_id, m.naam, m.land, m.aantal].forEach(t => {
+          const td = document.createElement('td'); td.textContent = t ?? ''; tr.appendChild(td);
+        });
+        const td = document.createElement('td');
+        const knop = document.createElement('button');
+        knop.className = 'verwijder'; knop.textContent = '✕'; knop.title = 'Verwijderen';
+        knop.addEventListener('click', () => verwijderMerk(m));
+        td.appendChild(knop); tr.appendChild(td);
+        merkTabel.appendChild(tr);
+      });
+      merkKeuze.value = huidig;
+    }
+
+    async function laden() {
+      try {
+        const res = await fetch(`${API}/api/kledingstukken`);
+        if (!res.ok) throw new Error(res.statusText);
+        const items = await res.json();
+        tabel.innerHTML = '';
+        leeg.style.display = items.length ? 'none' : 'block';
+        leeg.textContent = 'Nog geen kledingstukken.';
+        items.forEach(i => {
+          const tr = document.createElement('tr');
+          const cellen = [i.kledingstuk_id, i.naam, i.merk, i.categorie, i.maat, i.kleur,
+            `€ ${Number(i.prijs).toFixed(2).replace('.', ',')}`, i.voorraad].map(t => {
+            const td = document.createElement('td'); td.textContent = t ?? ''; return td;
+          });
+          const tdActie = document.createElement('td');
+          const knop = document.createElement('button');
+          knop.className = 'verwijder'; knop.textContent = '✕'; knop.title = 'Verwijderen';
+          knop.addEventListener('click', () => verwijder(i));
+          tdActie.appendChild(knop);
+          tr.append(...cellen, tdActie);
+          tabel.appendChild(tr);
+        });
+      } catch (e) {
+        leeg.textContent = 'Kan de backend niet bereiken. Draait de Flask-server op poort 5001?';
+        leeg.style.display = 'block';
+      }
+    }
+
+    laadMerken();
+    laden();
+  </script>
+</body>
+</html>
